@@ -9,7 +9,7 @@ name: Check In
 on:
   workflow_dispatch:
   schedule:
-    # 每天北京时间 12:00 自动签到（可选，不需要可删掉这行）
+    # 每天北京时间 12:00 自动签到
     - cron: "0 4 * * *"
 
 jobs:
@@ -47,7 +47,7 @@ jobs:
             echo "✅ 状态正常"
           fi
 
-          # 触发一次 Get Hot News
+          # 触发一次 Get Hot News（需要显式指定 --repo，因为 runner 目录没有 .git）
           echo "🚀 正在触发 Get Hot News..."
-          gh workflow run crawler.yml
+          gh workflow run crawler.yml --repo ${{ github.repository }}
           echo "✅ 已触发，请到 Actions 查看进度"
