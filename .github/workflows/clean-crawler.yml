@@ -1,17 +1,19 @@
 name: Check In
 
-# ✅ 签到续期：运行此 workflow 可重置 7 天计时，保持 "Get Hot News" 正常运行
-# ✅ Renewal: Run this workflow to reset the 7-day timer and keep "Get Hot News" active
+# ✅ 签到续期（自愈版）
+# ✅ 功能：删除旧纪录 + 自动启用被禁用的 Workflow + 触发 Get Hot News
 #
-# 📌 操作方法 / How to use:
-#   1. 点击 "Run workflow" 按钮 / Click "Run workflow" button
-#   2. 每 7 天内至少运行一次 / Run at least once every 7 days
+# 每 7 天至少运行一次，忘记运行也没关系，每天会定时自愈一次
+# Run at least once every 7 days, or let the daily schedule auto-heal
 
 on:
   workflow_dispatch:
+  schedule:
+    # 每天北京时间 12:00 自动签到（可选，不需要可删掉这行）
+    - cron: "0 4 * * *"
 
 jobs:
-  del_runs:
+  renew:
     runs-on: ubuntu-latest
     permissions:
       actions: write
@@ -26,3 +28,26 @@ jobs:
           keep_minimum_runs: 0
           delete_workflow_by_state_pattern: "ALL"
           delete_run_by_conclusion_pattern: "ALL"
+
+      # ⭐ 自愈：检查 crawler.yml 状态，被禁用则自动启用
+      - name: Auto-repair and re-trigger crawler
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          echo "🔍 检查 Get Hot News (crawler.yml) 状态..."
+          STATE=$(gh api repos/${{ github.repository }}/actions/workflows/crawler.yml --jq '.state')
+          echo "当前状态: $STATE"
+
+          if [ "$STATE" != "active" ]; then
+            echo "⚠️ 已被禁用，正在重新启用..."
+            gh api -X PUT repos/${{ github.repository }}/actions/workflows/crawler.yml/enable
+            sleep 2
+            echo "✅ 已启用"
+          else
+            echo "✅ 状态正常"
+          fi
+
+          # 触发一次 Get Hot News
+          echo "🚀 正在触发 Get Hot News..."
+          gh workflow run crawler.yml
+          echo "✅ 已触发，请到 Actions 查看进度"
